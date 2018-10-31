@@ -139,7 +139,7 @@ Eigen::MatrixXf get_manipulator_jacobian(std::vector<Eigen::Matrix4f> Trefs, Eig
     std::vector<Eigen::Vector3f> p;
     std::vector<Eigen::Vector3f> z;
 
-    for(int i = 1; i < Trefs.size() + 1; i++)
+    for(int i = 1; i < num_joints + 1; i++)                              //Update all transforms due to joint variables q
     {
         Eigen::Matrix4f Tref_updated = get_base_to_joint_transform(Trefs, q, type, i);
         p.push_back( Tref_updated.block<3,1>(0,3) );                     //Collect all position vectors wrt. base frame
@@ -148,6 +148,7 @@ Eigen::MatrixXf get_manipulator_jacobian(std::vector<Eigen::Matrix4f> Trefs, Eig
     }
     Eigen::Matrix4f T_B_TCP = updated_Trefs[num_joints - 1] * T_TCP;     //Transform from base to the TCP is just last transform multiplied by
                                                                          //independent (wrt. joint variables)tool transform
+
     Eigen::Vector3f pbt = T_B_TCP.block<3,1>(0,3);                       //Vector from origin of base frame to TCP
 
     //Fill up jacobian:
@@ -155,8 +156,9 @@ Eigen::MatrixXf get_manipulator_jacobian(std::vector<Eigen::Matrix4f> Trefs, Eig
     J.resize(6, num_joints); //Compute size of jacobian at runtime.
     for(int i = 0; i < Trefs.size(); i++)
     {
-        J.block<3,1>(0,i) = z[i].cross(pbt - p[i]);
-        J.block<3,1>(3,i) = z[i];
+        int xi = type[i];
+        J.block<3,1>(0,i) = xi * ( z[i].cross(pbt - p[i]) ) + (1 - xi) * z[i]; //Equation (4.4) from Robotic Notes.
+        J.block<3,1>(3,i) = xi * z[i];                                         //Equation (4.6)
     }
     return J;
 }
